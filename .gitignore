@@ -1,3 +1,4 @@
 # ignore all .csv files
 *.asv
 test_private.m
+*_ign.m
