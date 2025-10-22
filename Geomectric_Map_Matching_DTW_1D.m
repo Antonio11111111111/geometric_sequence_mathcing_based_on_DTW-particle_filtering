@@ -96,7 +96,7 @@ function [min_distance, target_location] = Geomectric_Map_Matching_DTW_1D(geo_ma
     fprintf('Match *starts* at index %d in the geo_map.\n', start_index);
     
     % --- 5. Prepare Output ---
-    target_location = geo_map(start_index:end_index);
+    target_location = start_index:end_index;
     
     % --- 6. (Optional) Visualize the Result ---
     if show_figure
