@@ -33,16 +33,14 @@ function [new_particles, best_guess] = Particle_Filter_DTW_Step_ign(old_particle
         map_sequence_indices = (particle_loc - window_radius) : (particle_loc + window_radius);
         map_sequence = geo_map(map_sequence_indices);
         
-        % c. [核心] 用 DTW 计算 "真实序列" 和 "地图序列" 的距离
-        %    这完全符合你们申请书[cite: 461, 474]中的 "Fast DTW地磁序列匹配" 步骤
-        dist = simple_global_dtw_ign(live_sequence, map_sequence);
+
+        dist = simple_global_dtw(live_sequence, map_sequence);
         
-        % d. 计算权重: 距离越小 (匹配越好)，权重越高
-        %    这符合你们的公式(3)[cite: 512, 555], V就是这里的 (dtw_noise_std^2)
+
         weights(i) = exp( -(dist^2) / (2 * dtw_noise_std^2) );
     end
     
-    % 归一化权重 (使其总和为1)
+
     if sum(weights) == 0
         weights = ones(N, 1); % 如果所有粒子都跑丢了，重置
     end
