@@ -1,87 +1,112 @@
-function [new_particles, best_guess] = Particle_Filter_DTW_Step_2D(old_particles, live_sequence, pdr_history, ...
-                                    geo_map, process_noise, dtw_noise_std)
-% 扩展到2D的粒子滤波 + DTW 步骤
-
-    N = size(old_particles, 1);
-    K = length(live_sequence); 
+function [particles_out, best_guess] = Particle_Filter_DTW_Step_2D(particles_in, live_sequence, ...
+                                            pdr_history, geo_map, process_noise, DTW_NOISE_STD)
+% 摘要: 执行一步粒子滤波 (传播、加权、重采样)
+% 权重: 基于DTW（动态时间规整）
+% 注意: 此函数需要 Signal Processing Toolbox (用于 'dtw' 函数)
     
-    predicted_particles = zeros(N, 3);
-    weights = zeros(N, 1); 
-
-    % --- 1. PREDICT (预测) ---
-    last_pdr_step = pdr_history(end, :); 
+    M = size(particles_in, 1);
+    L = size(pdr_history, 1);
     
-    for i = 1:N
-        old_x = old_particles(i, 1);
-        old_y = old_particles(i, 2);
-        old_theta = old_particles(i, 3);
-        
-        % 应用 "粒子噪声" (process_noise)
-        noisy_step = last_pdr_step(1) + randn() * process_noise.step_std;
-        if noisy_step < 0, noisy_step = 0; end 
-        
-        noisy_d_theta = last_pdr_step(2) + randn() * process_noise.theta_std;
-        new_theta = old_theta + noisy_d_theta;
-        
-        new_x = old_x + sin(new_theta) * noisy_step;
-        new_y = old_y + cos(new_theta) * noisy_step;
-        
-        predicted_particles(i, :) = [new_x, new_y, new_theta];
-    end
+    % --- 1. 传播 (Prediction/Propagation) ---
+    % 我们使用 *最后一步* 的PDR来传播所有粒子
+    last_pdr_step = pdr_history(end, :);
     
-    map_X_max = geo_map.X_grid(1, end);
-    map_Y_max = geo_map.Y_grid(end, 1);
-    predicted_particles(:, 1) = max(1, min(map_X_max, predicted_particles(:, 1)));
-    predicted_particles(:, 2) = max(1, min(map_Y_max, predicted_particles(:, 2)));
+    % 添加 *过程噪声* (您的 "修改 2")
+    step_noise = randn(M, 1) * process_noise.step_std;
+    theta_noise = randn(M, 1) * process_noise.theta_std;
+    
+    steps = last_pdr_step(1) + step_noise;
+    d_thetas = last_pdr_step(2) + theta_noise;
+    
+    % 矢量化传播
+    old_x = particles_in(:, 1);
+    old_y = particles_in(:, 2);
+    old_theta = particles_in(:, 3);
+    
+    new_theta = old_theta + d_thetas;
+    new_x = old_x + sin(new_theta) .* steps;
+    new_y = old_y + cos(new_theta) .* steps;
+    
+    % 边界检查
+    new_x = max(1, min(geo_map.X_grid(1,end), new_x));
+    new_y = max(1, min(geo_map.Y_grid(end,1), new_y));
+    
+    propagated_particles = [new_x, new_y, new_theta];
 
-    % --- 2. UPDATE (更新权重) ---
-    for i = 1:N
-        particle_state = predicted_particles(i, :); 
-        map_sequence = zeros(1, K);
-        current_pos = particle_state(1:2);
-        current_theta = particle_state(3);
+    % --- 2. 加权 (Weighting) ---
+    weights = zeros(M, 1);
+    dtw_variance = DTW_NOISE_STD^2;
+    
+    for m = 1:M
+        % --- 2a. 重建粒子路径 (Path Reconstruction) ---
+        % 对于每个粒子, 我们必须 "倒带" 它的历史来构建它的路径
+        particle_path = zeros(L, 2); % 存储 [x, y]
         
-        for k = K:-1:1
-            map_sequence(k) = interp2(geo_map.X_grid, geo_map.Y_grid, geo_map.Mag_map, ...
-                                      current_pos(1), current_pos(2), 'linear', 0); 
-                                  
-            step_k = pdr_history(k, 1);
-            d_theta_k = pdr_history(k, 2);
-            prev_theta = current_theta - d_theta_k;
+        % 路径的 *最后* 一点是我们刚刚 *传播* 到的点
+        current_pos = propagated_particles(m, 1:2);
+        current_theta = propagated_particles(m, 3);
+        particle_path(end, :) = current_pos;
+        
+        % 循环 "倒带"
+        for k = L-1:-1:1
+            % 获取此步骤的 PDR (没有噪声!)
+            pdr_step_len = pdr_history(k+1, 1);
+            pdr_d_theta = pdr_history(k+1, 2);
             
-            prev_pos_x = current_pos(1) - sin(current_theta) * step_k;
-            prev_pos_y = current_pos(2) - cos(current_theta) * step_k;
+            % 反转运动
+            prev_theta = current_theta - pdr_d_theta;
+            prev_x = current_pos(1) - sin(current_theta) * pdr_step_len;
+            prev_y = current_pos(2) - cos(current_theta) * pdr_step_len;
             
-            current_pos = [prev_pos_x, prev_pos_y];
+            % 存储倒带的路径点
+            particle_path(k, :) = [prev_x, prev_y];
+            
+            % 更新 "倒带" 状态
+            current_pos = [prev_x, prev_y];
             current_theta = prev_theta;
         end
         
-        dist = simple_global_dtw(live_sequence, map_sequence);
-        % 使用更新后的 dtw_noise_std
-        weights(i) = exp( -(dist^2) / (2 * dtw_noise_std^2) );
+        % --- 2b. 生成地图序列 ---
+        % 从地图中采样该粒子路径对应的地磁值
+        map_sequence = interp2(geo_map.X_grid, geo_map.Y_grid, geo_map.Mag_map, ...
+                              particle_path(:, 1), particle_path(:, 2), 'linear', 0);
+                          
+        % --- 2c. 计算 DTW 距离并转为权重 ---
+        % (需要 Signal Processing Toolbox)
+        distance = dtw(live_sequence(:), map_sequence(:));
+        
+        % 使用高斯核将距离转换为权重
+        weights(m) = exp(-distance^2 / (2 * dtw_variance));
     end
     
-    if sum(weights) == 0
-        weights = ones(N, 1); 
+    % 归一化权重
+    sum_weights = sum(weights);
+    if sum_weights > 1e-15
+        weights = weights / sum_weights;
+    else
+        % 粒子全部失效 (权重为0) -> 重置
+        weights = ones(M, 1) / M;
     end
-    weights = weights / sum(weights); 
-
-    % --- 3. RESAMPLE (重采样) ---
-    new_particles = zeros(N, 3);
-    c = cumsum(weights);
-    u = (0:N-1)/N + rand()/N; 
     
-    i_ptr = 1;
-    for j = 1:N
-        while u(j) > c(i_ptr)
-            i_ptr = i_ptr + 1;
+    % --- 3. 重采样 (Resampling) ---
+    % 使用标准 "Low Variance" / "Systematic" 重采样
+    particles_out = zeros(M, 3);
+    cdf = cumsum(weights);
+    r_0 = rand() / M; % 初始随机数
+    
+    idx_j = 1;
+    for m = 1:M
+        U = r_0 + (m-1)/M;
+        while U > cdf(idx_j)
+            idx_j = idx_j + 1;
         end
-        new_particles(j, :) = predicted_particles(i_ptr, :);
+        particles_out(m, :) = propagated_particles(idx_j, :);
     end
-
-    % --- 4. ESTIMATE (估计) ---
-    best_guess_x = sum(weights .* predicted_particles(:, 1));
-    best_guess_y = sum(weights .* predicted_particles(:, 2));
-    best_guess = [best_guess_x, best_guess_y]; 
+    
+    % --- 4. 估计 (Estimation) ---
+    % 最佳估计是重采样后粒子的均值
+    best_guess = mean(particles_out, 1);
+    
+    % (处理角度均值，确保在 -pi 到 pi 之间)
+    best_guess(3) = atan2(mean(sin(particles_out(:, 3))), mean(cos(particles_out(:, 3))));
 end
-
