@@ -104,7 +104,7 @@ for t = 2:NUM_STEPS
    
     % --- 4a. Simulate True Motion (PDR) ---
     % Get the next true state and the PDR step that led to it
-    [true_state, pdr_step] = get_next_step_random(full_true_path_history(t-1, :), MAP_X_LEN, MAP_Y_LEN);
+    [true_state, pdr_step] = Get_Next_Step_2D(full_true_path_history(t-1, :), MAP_X_LEN, MAP_Y_LEN);
     
     % Log the true motion
     full_pdr_step_history(t, :) = pdr_step;
