@@ -21,12 +21,12 @@ close all;
 %% 1. SIMULATION PARAMETERS
 %==========================================================================
 M_init = 500;            
-NUM_STEPS = 100;          
+NUM_STEPS = 30;          
 SEQUENCE_LEN = 50;        
 MAP_X_LEN = 50;           
 MAP_Y_LEN = 50;           
 SENSOR_NOISE_STD = 0.5;   
-DTW_NOISE_STD = 10; % [修改] 使用一个更有区分度的值
+DTW_NOISE_STD = 10;
 process_noise.step_std = 0.5;          
 process_noise.theta_std = deg2rad(10); 
 
@@ -59,10 +59,10 @@ fprintf('Map generation complete.\n');
 %==========================================================================
 fprintf('Initializing simulation...\n');
 true_state = [MAP_X_LEN/2, MAP_Y_LEN/4, deg2rad(45)]; 
-INIT_POS_STD = 5.0; 
+INIT_POS_STD = 0.8; 
 INIT_ANG_STD = 0.5; 
 
-% [修改] 粒子现在是结构体数组 (Struct Array)
+
 particles(1:M_init) = struct('x', 0, 'y', 0, 'theta', 0, 'weight', 1/M_init);
 for i = 1:M_init
     particles(i).x = true_state(1) + randn() * INIT_POS_STD;
@@ -366,7 +366,8 @@ function [weight, dtw_dist] = weight_one_particle(p_propagated, live_sequence, p
     dtw_dist = dtw(live_sequence(:), map_sequence(:));
     
     dtw_variance = DTW_NOISE_STD^2;
-    weight = exp(-dtw_dist^2 / (2 * dtw_variance));
+    % weight = exp(-dtw_dist^2 / (2 * dtw_variance));
+    weight = 1./(1+(dtw_dist./dtw_variance).^2);
 end
 
 %% ========================================================================

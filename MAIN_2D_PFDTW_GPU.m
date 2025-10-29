@@ -44,7 +44,7 @@ pos_std = 5.0;           % Std dev for re-injected particle position
 ang_std = 0.2;            % Std dev for re-injected particle angle
 APF.M_min = 500;          % Minimum allowed particle count
 APF.M_max = 10000000;      % Maximum allowed particle count
-APF.DTW_THRESH_HIGH = 21.2; % DTW distance above which M is increased
+APF.DTW_THRESH_HIGH = 100; % DTW distance above which M is increased
 APF.DTW_THRESH_LOW  = 10.0; % DTW distance below which M is decreased
 %% 2. MAP GENERATION
 %==========================================================================
@@ -197,7 +197,7 @@ hold on;
 axis xy; 
 colormap('jet');
 colorbar;
-title('2D Path Tracking (DTW-APF) - Random Path'); 
+title('2D Path Tracking  - Random Path'); 
 xlabel('X Position');
 ylabel('Y Position');
 

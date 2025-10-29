@@ -13,7 +13,7 @@
 function [X_map, Y_map, Z_map, P_truth, P_ins, M_measured] = setup_simulation()
 
 % 1. Generate geomagnetic map (using peaks function to simulate complex field)
-[X_map, Y_map] = meshgrid(linspace(-3, 3, 200), linspace(-3, 3, 200));
+[X_map, Y_map] = meshgrid(linspace(-25, 25, 200), linspace(-25, 25, 200));
 Z_map = peaks(X_map, Y_map) * 100 + 50000; % Simulate field around 50000 nT
 
 % 2. Generate ground truth trajectory

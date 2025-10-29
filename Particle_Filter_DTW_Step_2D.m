@@ -219,7 +219,8 @@ function [particles_out, best_guess, d_min] = Particle_Filter_DTW_Step_2D(partic
         all_distances(m) = distance;
         
         % Use a Gaussian kernel to convert distance to weight
-        weights(m) = exp(-distance^2 / (2 * dtw_variance));
+        % weights(m) = exp(-distance^2 / (2 * dtw_variance));
+        weights(m) = 1./(1+(distance./dtw_variance).^2);
     end
     
     % --- 2d. Normalize Weights ---

@@ -40,11 +40,20 @@ pos_std = 5.0;           % Std dev for re-injected particle position
 ang_std = 0.2;            % Std dev for re-injected particle angle
 
 % --- APF (Adaptive Particle Filter) Parameters ---
-APF.M_min = 500;          % Minimum allowed particle count
-APF.M_max = 100000;      % Maximum allowed particle count
-APF.DTW_THRESH_HIGH = 21.9; % DTW distance above which M is increased
-APF.DTW_THRESH_LOW  = 10.0; % DTW distance below which M is decreased
+% APF.M_min = 500;          % Minimum allowed particle count
+% APF.M_max = 100000;      % Maximum allowed particle count
+% APF.DTW_THRESH_HIGH = 22; % DTW distance above which M is increased
+% APF.DTW_THRESH_LOW  = 10.0; % DTW distance below which M is decreased
+KLD.n_min = 500;          % 最小粒子数
+KLD.n_max = 100000;       % 最大粒子数 (安全上限)
+KLD.bin_size_xy = 0.5;    % [重要] X/Y 分箱大小 (米)
+KLD.epsilon = 0.05;       % [重要] KLD 误差界 (e.g., 0.05)
+KLD.delta = 0.01;         % [重要] KLD 概率界 (1-0.01 = 99% 置信度)
+KLD.DTW_THRESH_HIGH = 23.9; % 加回这一行
 
+%%
+sigma = 0.05;
+eps = 0.5;
 
 %% 2. MAP GENERATION
 %==========================================================================
@@ -161,11 +170,19 @@ for t = 2:NUM_STEPS
     particles_out(indices_to_reset, 3) = best_guess_state(3) + randn(N_reset, 1) * ang_std;
 
     % M-Adaptation (adjust particle count)
-    M_new = Adapt_Particle_Count_DTW(current_M, dist, ...
-                APF.DTW_THRESH_LOW, APF.DTW_THRESH_HIGH, ...
-                APF.M_min, APF.M_max);
-    
-    % Apply the new particle count
+    % M_new = Adapt_Particle_Count_DTW(current_M, dist, ...
+    %             APF.DTW_THRESH_LOW, APF.DTW_THRESH_HIGH, ...
+    %             APF.M_min, APF.M_max);
+    % M_new = Adapt_Particle_Count_DTW_KLD(particles_out, KLD.bin_size_xy, ...
+    %                             MAP_X_LEN, MAP_Y_LEN, ...
+    %                             KLD.epsilon, KLD.delta, ...
+    %                             KLD.n_min, KLD.n_max)    % Apply the new particle count
+    % 传入 d_min 和 DTW_THRESH_HIGH
+M_new = Adapt_Particle_Count_DTW_KLD(particles_out, dist, KLD.bin_size_xy, ...
+                                MAP_X_LEN, MAP_Y_LEN, ...
+                                KLD.epsilon, KLD.delta, ...
+                                KLD.n_min, KLD.n_max, ...
+                                KLD.DTW_THRESH_HIGH);
     if M_new ~= current_M
         particles_next = Adjust_Particle_Set(particles_out, M_new);
     else
@@ -231,8 +248,8 @@ title('Adaptive Particle Count (M_t)');
 xlabel('Time Step');
 ylabel('Particle Count (M)');
 grid on;
-line([1, NUM_STEPS], [APF.M_min, APF.M_min], 'Color', 'red', 'LineStyle', '--', 'DisplayName', 'M_min');
-line([1, NUM_STEPS], [APF.M_max, APF.M_max], 'Color', 'red', 'LineStyle', '--', 'DisplayName', 'M_max');
+line([1, NUM_STEPS], [KLD.M_min, KLD.M_min], 'Color', 'red', 'LineStyle', '--', 'DisplayName', 'M_min');
+line([1, NUM_STEPS], [KLD.M_max, KLD.M_max], 'Color', 'red', 'LineStyle', '--', 'DisplayName', 'M_max');
 legend('M_t', 'Bounds', 'Location', 'best');
 ylim([APF.M_min*0.8, APF.M_max*1.2]);
 
