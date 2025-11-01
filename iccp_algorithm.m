@@ -1,23 +1,21 @@
-% =========================================================================
-% File 3:  iccp_algorithm.m
-% =========================================================================
-
-% iccp_algorithm.m
-%
-% Implements the classic ICCP algorithm (rigid transform only).
-%
-% Inputs:
-%   P_ins:      INS indicated track points (N x 2)
-%   M_measured: Corresponding geomagnetic measurements (N x 1)
-%   X_map, Y_map, Z_map: Geomagnetic reference map
-%
-% Outputs:
-%   P_corrected: Matched/corrected track (N x 2)
-%   R_final:     Final rotation matrix
-%   t_final:     Final translation vector
-%   errors:      RMSE history for each iteration
-
-function [P_corrected, R_final, t_final, errors] = iccp_algorithm(P_ins, M_measured, X_map, Y_map, Z_map)
+function [P_corrected, R_final, t_final, errors, k] = ICCP_Algorithm(P_ins, M_measured, X_map, Y_map, Z_map)
+% Name: ICCP_Algorithm
+% Description: Implements the classic Iterative Closest Contour Point (ICCP) 
+%              algorithm for a 2D rigid transformation (rotation + translation).
+% Parameters:
+%   P_ins:      (N x 2) INS indicated track points (source points).
+%   M_measured: (N x 1) Corresponding geomagnetic measurements.
+%   X_map:      (matrix) X-coordinates of the map grid.
+%   Y_map:      (matrix) Y-coordinates of the map grid.
+%   Z_map:      (matrix) Z-values (magnetic intensity) of the map grid.
+% Output:
+%   P_corrected: (N x 2) Matched/corrected track.
+%   R_final:     (2 x 2) Final accumulated rotation matrix.
+%   t_final:     (2 x 1) Final accumulated translation vector.
+%   errors:      (k x 1) RMSE history for each iteration.
+%   k:           (scalar) Number of iterations performed.
+% Example:
+%   [P_corr, R, t, err, iters] = ICCP_Algorithm(P_ins, M_m, X_m, Y_m, Z_m);
 
 % Iteration parameters
 max_iter = 20;      % Max number of iterations
@@ -37,11 +35,12 @@ fprintf('---------------------\n');
 for k = 1:max_iter
     
     % Step 1: Find closest contour points (Matching)
-    Y = find_closest_contour_points(P_current, M_measured, X_map, Y_map, Z_map);
+    % Y is the set of target points on the map contours
+    Y = ICCP_Find_Closest_Contour_Points(P_current, M_measured, X_map, Y_map, Z_map);
     
     % Step 2: Solve for optimal rigid transform (Alignment)
-    % Solve only for rotation R and translation t
-    [R, t] = find_rigid_transform(P_current, Y);
+    % Solves for R, t such that Y = R * P_current + t
+    [R, t] = ICCP_Find_Rigid_Transform(P_current, Y);
     
     % Step 3: Apply transformation
     % Update the track points: P_new = R*P_current + t

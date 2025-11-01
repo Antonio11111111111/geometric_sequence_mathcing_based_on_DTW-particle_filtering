@@ -1,4 +1,3 @@
-function MAIN_2D_PFDTW_GPU
 %==========================================================================
 % SCRIPT: MAIN_2D_PFDTW (Hybrid GPU/CPU-Parallel Single-File Version)
 %
@@ -234,7 +233,7 @@ line([1, NUM_STEPS], [APF.M_max, APF.M_max], 'Color', 'red', 'LineStyle', '--', 
 legend('show', 'Location', 'best');
 ylim([APF.M_min*0.8, APF.M_max*1.2]);
 
-end % <--- [!!] 结束主函数 [!!]
+ % <--- [!!] 结束主函数 [!!]
 
 %% 
 %==========================================================================
