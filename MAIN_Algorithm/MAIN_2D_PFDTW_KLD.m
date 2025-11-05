@@ -1,5 +1,5 @@
 %==========================================================================
-% SCRIPT: MAIN_2D_PFDTW
+% SCRIPT: MAIN_2D_PFDTW_KLD
 %
 % DESCRIPTION:
 %   Main simulation script for a 2D Adaptive Particle Filter (APF)
@@ -146,7 +146,7 @@ for t = 2:NUM_STEPS
     end
     % Add sensor noise: + e_t
     live_sequence = live_sequence + randn(1, SEQUENCE_LEN) * SENSOR_NOISE_STD;
-    
+    live_sequence = Denoise_Visushrink(live_sequence, 'db4');
     % --- 4c. Call the 2D Particle Filter Step ---
     if t == 2 && ~exist('dtw', 'file')
         error('Function "dtw" not found. This script requires the Signal Processing Toolbox.');
