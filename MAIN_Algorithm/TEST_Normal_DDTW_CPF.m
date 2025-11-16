@@ -47,59 +47,59 @@ eps = 0.5;
 APFRATE = 0.08;
 % 2. MAP GENERATION (发送到GPU, 使用 'single')
 %==========================================================================
-fprintf('生成地磁地图并发送到GPU...\n');
-[X, Y] = meshgrid(1:MAP_X_LEN, 1:MAP_Y_LEN);
-Mag_raw = Geometric_Map_Generator(2, [MAP_X_LEN, MAP_Y_LEN]); 
-Mag = imgaussfilt(Mag_raw, 3.0); 
-% *** [GPU 类型修复] ***
-geo_map.X_grid = gpuArray(single(X));
-geo_map.Y_grid = gpuArray(single(Y));
-geo_map.Mag_map = gpuArray(single(Mag));
-fprintf('地图已在GPU上 (single 精度)。\n');
-% %% 2. MAP GENERATION (V-Final: "拉伸"真实地图以适应模拟器)
-% %==========================================================================
-% fprintf('正在从 my_uji_map.mat 加载真实地图...\n');
-% MAP_FILENAME = 'my_hybrid_map.mat';
-% 
-% % 1. 检查地图文件是否存在
-% if ~exist(MAP_FILENAME, 'file')
-%     error('未找到地图文件: %s. \n请先运行 Build_UJI_Map.m 脚本来创建它。', MAP_FILENAME);
-% end
-% 
-% % 2. [关键] 加载 .mat 文件
-% %    这会在工作区中创建 'geo_map_cpu' 变量
-% load(MAP_FILENAME); 
-% 
-% fprintf('...已加载真实地图 (原始尺寸: %d x %d)。\n', ...
-%         size(geo_map_cpu.Mag_map, 1), size(geo_map_cpu.Mag_map, 2));
-% 
-% % 3. [!! 核心修复 !!] "拉伸"真实地图以匹配模拟器
-% %    我们使用 imresize 将加载的真实地图 "拉伸" 到
-% %    你在 %% 1. 中定义的 50x50 模拟尺寸。
-% 
-% %    从 %% 1. 获取模拟网格尺寸
+% fprintf('生成地磁地图并发送到GPU...\n');
 % [X, Y] = meshgrid(1:MAP_X_LEN, 1:MAP_Y_LEN);
-% 
-% %    拉伸地图
-% Mag = imresize(geo_map_cpu.Mag_map, [MAP_Y_LEN, MAP_X_LEN]);
-% Mag = imgaussfilt(Mag, 1.0); % 轻微平滑一下拉伸后的图像
-% 
-% fprintf('...真实地图已被 "拉伸" 到 %d x %d 以匹配模拟器。\n', ...
-%         MAP_Y_LEN, MAP_X_LEN);
-% 
-% % 4. [兼容性] 创建你的 %% 4. (模拟器) 需要的变量
-% %    现在 X, Y, Mag 都有了, 第 161 行的 interp2 不会报错
-% X_for_interp = X; % (保留 X, Y, Mag 以便你将来调试)
-% Y_for_interp = Y;
-% Mag_for_interp = Mag;
-% 
-% % 5. [兼容性] 创建你的 *子函数* 需要的 'geo_map' 结构体
-% %    (你的子函数 Particle_Filter_... 也需要这个)
-% fprintf('发送 "拉伸后" 的地图到 GPU...\n');
+% Mag_raw = Geometric_Map_Generator(2, [MAP_X_LEN, MAP_Y_LEN]); 
+% Mag = imgaussfilt(Mag_raw, 3.0); 
+% % *** [GPU 类型修复] ***
 % geo_map.X_grid = gpuArray(single(X));
 % geo_map.Y_grid = gpuArray(single(Y));
 % geo_map.Mag_map = gpuArray(single(Mag));
 % fprintf('地图已在GPU上 (single 精度)。\n');
+% %% 2. MAP GENERATION (V-Final: "拉伸"真实地图以适应模拟器)
+% %==========================================================================
+fprintf('正在从 my_uji_map.mat 加载真实地图...\n');
+MAP_FILENAME = 'my_hybrid_map.mat';
+
+% 1. 检查地图文件是否存在
+if ~exist(MAP_FILENAME, 'file')
+    error('未找到地图文件: %s. \n请先运行 Build_UJI_Map.m 脚本来创建它。', MAP_FILENAME);
+end
+
+% 2. [关键] 加载 .mat 文件
+%    这会在工作区中创建 'geo_map_cpu' 变量
+load(MAP_FILENAME); 
+
+fprintf('...已加载真实地图 (原始尺寸: %d x %d)。\n', ...
+        size(geo_map_cpu.Mag_map, 1), size(geo_map_cpu.Mag_map, 2));
+
+% 3. [!! 核心修复 !!] "拉伸"真实地图以匹配模拟器
+%    我们使用 imresize 将加载的真实地图 "拉伸" 到
+%    你在 %% 1. 中定义的 50x50 模拟尺寸。
+
+%    从 %% 1. 获取模拟网格尺寸
+[X, Y] = meshgrid(1:MAP_X_LEN, 1:MAP_Y_LEN);
+
+%    拉伸地图
+Mag = imresize(geo_map_cpu.Mag_map, [MAP_Y_LEN, MAP_X_LEN]);
+Mag = imgaussfilt(Mag, 1.0); % 轻微平滑一下拉伸后的图像
+
+fprintf('...真实地图已被 "拉伸" 到 %d x %d 以匹配模拟器。\n', ...
+        MAP_Y_LEN, MAP_X_LEN);
+
+% 4. [兼容性] 创建你的 %% 4. (模拟器) 需要的变量
+%    现在 X, Y, Mag 都有了, 第 161 行的 interp2 不会报错
+X_for_interp = X; % (保留 X, Y, Mag 以便你将来调试)
+Y_for_interp = Y;
+Mag_for_interp = Mag;
+
+% 5. [兼容性] 创建你的 *子函数* 需要的 'geo_map' 结构体
+%    (你的子函数 Particle_Filter_... 也需要这个)
+fprintf('发送 "拉伸后" 的地图到 GPU...\n');
+geo_map.X_grid = gpuArray(single(X));
+geo_map.Y_grid = gpuArray(single(Y));
+geo_map.Mag_map = gpuArray(single(Mag));
+fprintf('地图已在GPU上 (single 精度)。\n');
 
 %% 3. INITIALIZATION (为两个滤波器创建 'single' 粒子)
 %==========================================================================

@@ -83,18 +83,61 @@ function [particles_out, best_guess, d_min] = Particle_Filter_DTW_Step_2D_CPFTes
     
     parfor m = 1:M
         map_seq = all_map_sequences_cpu(m, :);
-        
+
         % --- [DDTW MODIFICATION] ---
         % 计算 "map" 序列的导数
         map_seq_deriv = diff(map_seq);
-        
+
         % 使用导数序列 (形状) 计算DTW [cite: 280]
         distance = dtw(live_sequence_deriv, map_seq_deriv);
         % --- [END MODIFICATION] ---
-        
+
         all_distances_cpu(m) = distance;
         weights_cpu(m) = 1./(1+(distance./dtw_variance).^2);
     end
+    % --- [NEW: Multi-Window Ensemble Settings] ---
+    % 定义您的三个尺度 (L-1 是因为 diff() 减少了1)
+    % L_full = length(live_sequence_deriv); % e.g., 99
+    % L_med  = 50;  % 中尺度 (示例)
+    % L_short = 20; % 短尺度 (示例)
+    % 
+    % % (确保 L_short 和 L_med 不大于 L_full)
+    % L_med = min(L_med, L_full);
+    % L_short = min(L_short, L_full);
+    % 
+    % % 提取 "live" 序列的末端
+    % live_deriv_full = live_sequence_deriv;
+    % live_deriv_med  = live_sequence_deriv(end-L_med+1:end);
+    % live_deriv_short = live_sequence_deriv(end-L_short+1:end);
+    % % --- [END NEW] ---
+    % 
+    % parfor m = 1:M
+    %     map_seq_full = all_map_sequences_cpu(m, :);
+    % 
+    %     % --- [DDTW MODIFICATION] ---
+    %     map_seq_deriv_full = diff(map_seq_full);
+    % 
+    %     % 1. 提取地图序列的末端
+    %     map_deriv_med  = map_seq_deriv_full(end-L_med+1:end);
+    %     map_deriv_short = map_seq_deriv_full(end-L_short+1:end);
+    % 
+    %     % 2. 在所有三个尺度上计算DTW
+    %     dist_long  = dtw(live_deriv_full, map_seq_deriv_full);
+    %     dist_med   = dtw(live_deriv_med, map_deriv_med);
+    %     dist_short = dtw(live_deriv_short, map_deriv_short);
+    % 
+    %     % 3. 计算三个独立的权重 (使用您现有的Cauchy函数)
+    %     w_long  = 1./(1+(dist_long ./dtw_variance).^2);
+    %     w_med   = 1./(1+(dist_med  ./dtw_variance).^2);
+    %     w_short = 1./(1+(dist_short./dtw_variance).^2);
+    % 
+    %     % 4. [关键] 集成权重：必须在所有尺度上都匹配良好
+    %     weights_cpu(m) = w_long * w_med * w_short; 
+    % 
+    %     % 仍然只记录最长距离用于调试
+    %     all_distances_cpu(m) = dist_long;
+    %     % --- [END MODIFICATION] ---
+    % end
     
     % --- 2d. Normalize Weights (ON GPU) ---
     weights_gpu = gpuArray(weights_cpu);
