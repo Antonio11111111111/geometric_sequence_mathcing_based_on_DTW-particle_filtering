@@ -30,6 +30,8 @@ DTW_NOISE_STD = 10;
 process_noise.step_std = 0.5;          
 process_noise.theta_std = deg2rad(10); 
 
+filename = 'tt01.txt';
+
 % --- KLD-Sampling Parameters ---
 KLD.epsilon = 0.05;       % 允许的最大近似误差
 KLD.delta = 0.01;         % 置信度: (1-delta) = 99%
@@ -61,7 +63,7 @@ fprintf('Initializing simulation...\n');
 true_state = [MAP_X_LEN/2, MAP_Y_LEN/4, deg2rad(45)]; 
 INIT_POS_STD = 0.8; 
 INIT_ANG_STD = 0.5; 
-
+Get_Next_Step_2D_UJI('init', filename);
 
 particles(1:M_init) = struct('x', 0, 'y', 0, 'theta', 0, 'weight', 1/M_init);
 for i = 1:M_init
@@ -88,7 +90,8 @@ h_waitbar = waitbar(0, 'Running KLD-PF 2D Particle Filter...');
 for t = 2:NUM_STEPS
    
     % --- 4a. Simulate True Motion (PDR) ---
-    [true_state, pdr_step] = Get_Next_Step_2D(full_true_path_history(t-1, :), MAP_X_LEN, MAP_Y_LEN);
+    % [true_state, pdr_step] = Get_Next_Step_2D(full_true_path_history(t-1, :), MAP_X_LEN, MAP_Y_LEN);
+    [true_state, pdr_step] = Get_Next_Step_2D_UJI(full_true_path_history(t-1, :), MAP_X_LEN, MAP_Y_LEN);
     full_pdr_step_history(t, :) = pdr_step;
     full_true_path_history(t, :) = true_state;
     
